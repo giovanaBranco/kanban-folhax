@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban por épicos - Folha X</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; padding: 24px; }
+        .header { text-align: center; margin-bottom: 24px; }
+        .header h1 { font-size: 1.8rem; font-weight: 600; color: #ffffff; margin-bottom: 6px; }
+        .header .subtitle { font-size: 0.95rem; color: #8892b0; }
+        .loading { text-align: center; padding: 60px; color: #8892b0; font-size: 1.1rem; }
+        .loading .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid #2d2d44; border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .filters-container { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filters-container input, .filters-container select {
+            padding: 10px 16px; border-radius: 8px; border: 1px solid #2d2d44;
+            background: #16213e; color: #e0e0e0; font-size: 0.9rem;
+            font-family: 'Segoe UI', sans-serif; outline: none; transition: border-color 0.2s;
+        }
+        .filters-container input { max-width: 400px; width: 100%; }
+        .filters-container select { min-width: 180px; cursor: pointer; }
+        .filters-container input:focus, .filters-container select:focus { border-color: #4a9eff; }
+        .filters-container input::placeholder { color: #5a6580; }
+        .stats-bar { display: flex; justify-content: center; gap: 24px; margin-bottom: 28px; flex-wrap: wrap; }
+        .stat-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #a0aec0; }
+        .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .stat-dot.active { background: #4a9eff; }
+        .stat-dot.review { background: #a855f7; }
+        .stat-dot.test { background: #f59e0b; }
+        .stat-dot.resolved { background: #10b981; }
+        .stat-count { font-weight: 600; color: #fff; }
+        .epic-section { margin-bottom: 20px; background: #16213e; border-radius: 12px; overflow: hidden; border: 1px solid #2d2d44; }
+        .epic-header { display: flex; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; transition: background 0.2s; gap: 10px; }
+        .epic-header:hover { background: #1a2744; }
+        .epic-header .chevron { font-size: 0.75rem; transition: transform 0.2s; color: #8892b0; }
+        .epic-header.collapsed .chevron { transform: rotate(-90deg); }
+        .epic-header h2 { font-size: 0.95rem; font-weight: 600; color: #cbd5e1; flex: 1; }
+        .epic-header .epic-count { font-size: 0.8rem; color: #64748b; background: #1e293b; padding: 2px 10px; border-radius: 12px; }
+        .epic-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid #2d2d44; }
+        .epic-body.hidden { display: none; }
+        .kanban-column { padding: 12px; min-height: 80px; border-right: 1px solid #2d2d44; }
+        .kanban-column:last-child { border-right: none; }
+        .column-header { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid transparent; }
+        .column-header.active { color: #4a9eff; border-bottom-color: #4a9eff; }
+        .column-header.review { color: #a855f7; border-bottom-color: #a855f7; }
+        .column-header.test { color: #f59e0b; border-bottom-color: #f59e0b; }
+        .column-header.resolved { color: #10b981; border-bottom-color: #10b981; }
+        .card { background: #1e293b; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid transparent; transition: transform 0.15s, box-shadow 0.15s; }
+        .card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .card.active { border-left-color: #4a9eff; }
+        .card.review { border-left-color: #a855f7; }
+        .card.test { border-left-color: #f59e0b; }
+        .card.resolved { border-left-color: #10b981; }
+        .card-title { font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin-bottom: 6px; line-height: 1.3; }
+        .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #64748b; }
+        .card-id { font-weight: 600; color: #8892b0; text-decoration: none; transition: color 0.2s; }
+        .card-id:hover { color: #4a9eff; text-decoration: underline; }
+        .card-assignee { color: #94a3b8; }
+        .card-leadtime { color: #f59e0b; font-weight: 600; font-size: 0.7rem; }
+        .card-hours { color: #38bdf8; font-weight: 600; font-size: 0.7rem; }
+        .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+        .card-tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: #2d3748; color: #a0aec0; border: 1px solid #4a5568; }
+        .card-type-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+        .card-type-badge.bug { background: #7f1d1d; color: #fca5a5; }
+        .no-items { font-size: 0.75rem; color: #475569; font-style: italic; padding: 8px 0; }
+        .card.hidden-card { display: none; }
+        .epic-section.hidden-epic { display: none; }
+        .refresh-btn { background: #1e3a5f; color: #4a9eff; border: 1px solid #4a9eff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .refresh-btn:hover { background: #264a73; }
+        .logout-btn { background: #3b1f1f; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; margin-left: 8px; }
+        .logout-btn:hover { background: #5c2a2a; }
+        .last-update { font-size: 0.8rem; color: #64748b; text-align: center; margin-bottom: 16px; }
+        /* Modal de autenticação */
+        .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .auth-modal { background: #16213e; border: 1px solid #2d2d44; border-radius: 16px; padding: 36px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .auth-modal h2 { color: #fff; font-size: 1.3rem; margin-bottom: 8px; }
+        .auth-modal p { color: #8892b0; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; }
+        .auth-modal label { color: #cbd5e1; font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 6px; }
+        .auth-modal input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #2d2d44; background: #1a1a2e; color: #e0e0e0; font-size: 0.9rem; font-family: 'Courier New', monospace; outline: none; transition: border-color 0.2s; }
+        .auth-modal input:focus { border-color: #4a9eff; }
+        .auth-modal .auth-btn { width: 100%; padding: 12px; margin-top: 16px; background: #4a9eff; color: #fff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .auth-modal .auth-btn:hover { background: #3a8eef; }
+        .auth-modal .auth-btn:disabled { background: #2d2d44; color: #64748b; cursor: not-allowed; }
+        .auth-modal .auth-error { color: #f87171; font-size: 0.8rem; margin-top: 10px; display: none; }
+        .auth-modal .auth-help { color: #64748b; font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+        .auth-modal .auth-help a { color: #4a9eff; text-decoration: none; }
+        .auth-modal .auth-help a:hover { text-decoration: underline; }
+        .user-info { font-size: 0.8rem; color: #8892b0; margin-left: 12px; }
+        @media (max-width: 900px) { .epic-body { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 550px) { .epic-body { grid-template-columns: 1fr; } .kanban-column { border-right: none; border-bottom: 1px solid #2d2d44; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Kanban por épicos - Folha X</h1>
+        <p class="subtitle">Projeto: HCM - Senior | Dados em tempo real do Azure DevOps</p>
+    </div>
+    <div class="last-update">
+        <button class="refresh-btn" onclick="loadData()">🔄 Atualizar</button>
+        <button class="logout-btn" onclick="logout()">🔒 Trocar PAT</button>
+        <span id="lastUpdate"></span>
+        <span class="user-info" id="userInfo"></span>
+    </div>
+
+    <!-- Modal de Autenticação -->
+    <div class="auth-overlay" id="authOverlay" style="display:none;">
+        <div class="auth-modal">
+            <h2>🔐 Autenticação Azure DevOps</h2>
+            <p>Para acessar os dados do Kanban, informe sua Personal Access Token (PAT) do Azure DevOps. O token ficará salvo apenas no seu navegador.</p>
+            <label for="patInput">Personal Access Token (PAT)</label>
+            <input type="password" id="patInput" placeholder="Cole sua PAT aqui..." onkeypress="if(event.key==='Enter') authenticate()">
+            <button class="auth-btn" onclick="authenticate()" id="authBtn">Entrar</button>
+            <div class="auth-error" id="authError"></div>
+            <div class="auth-help">
+                <strong>Como gerar sua PAT:</strong><br>
+                1. Acesse <a href="https://dev.azure.com/senior-sistemas/_usersSettings/tokens" target="_blank">Azure DevOps → User Settings → Personal Access Tokens</a><br>
+                2. Clique em "+ New Token"<br>
+                3. Dê um nome (ex: "Kanban Folha X"), defina expiração<br>
+                4. Em Scopes, selecione <strong>Read</strong> em "Work Items"<br>
+                5. Copie o token gerado e cole acima
+            </div>
+        </div>
+    </div>
+    <div class="filters-container" id="filtersContainer" style="display:none;">
+        <input type="text" id="searchInput" placeholder="Filtrar por título, ID ou responsável..." oninput="filterCards()">
+        <select id="tagFilter" onchange="filterCards()"><option value="">Todas as tags</option></select>
+    </div>
+    <div class="stats-bar" id="statsBar" style="display:none;">
+        <div class="stat-item"><span class="stat-dot active"></span> Active: <span class="stat-count" id="stat-active">0</span></div>
+        <div class="stat-item"><span class="stat-dot review"></span> Review: <span class="stat-count" id="stat-review">0</span></div>
+        <div class="stat-item"><span class="stat-dot test"></span> Test: <span class="stat-count" id="stat-test">0</span></div>
+        <div class="stat-item"><span class="stat-dot resolved"></span> Resolved: <span class="stat-count" id="stat-resolved">0</span></div>
+    </div>
+    <div id="kanbanBoard"><div class="loading"><div class="spinner"></div><br>Carregando dados do Azure DevOps...</div></div>
+<script>
+const ORG = 'senior-sistemas';
+const PROJECT = 'HCM - Senior';
+const API_BASE = `https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_apis`;
+
+// --- Autenticação via localStorage ---
+function getStoredPAT() {
+    return localStorage.getItem('azdo_pat_kanban_folhax');
+}
+
+function storePAT(pat) {
+    localStorage.setItem('azdo_pat_kanban_folhax', pat);
+}
+
+function clearPAT() {
+    localStorage.removeItem('azdo_pat_kanban_folhax');
+}
+
+function getAuthHeader() {
+    const pat = getStoredPAT();
+    if (!pat) return null;
+    return 'Basic ' + btoa(':' + pat);
+}
+
+function showAuthModal() {
+    document.getElementById('authOverlay').style.display = 'flex';
+    document.getElementById('patInput').value = '';
+    document.getElementById('authError').style.display = 'none';
+    document.getElementById('patInput').focus();
+}
+
+function hideAuthModal() {
+    document.getElementById('authOverlay').style.display = 'none';
+}
+
+async function authenticate() {
+    const pat = document.getElementById('patInput').value.trim();
+    if (!pat) {
+        showAuthError('Informe a PAT para continuar.');
+        return;
+    }
+
+    const btn = document.getElementById('authBtn');
+    btn.disabled = true;
+    btn.textContent = 'Verificando...';
+
+    try {
+        // Testa a PAT fazendo uma chamada simples
+        const testUrl = `https://dev.azure.com/${ORG}/_apis/projects?api-version=7.1&$top=1`;
+        const resp = await fetch(testUrl, {
+            headers: { 'Authorization': 'Basic ' + btoa(':' + pat) }
+        });
+
+        if (resp.status === 401 || resp.status === 403) {
+            showAuthError('PAT inválida ou sem permissão. Verifique o token e tente novamente.');
+            btn.disabled = false;
+            btn.textContent = 'Entrar';
+            return;
+        }
+
+        if (!resp.ok) {
+            showAuthError(`Erro ao verificar PAT: HTTP ${resp.status}`);
+            btn.disabled = false;
+            btn.textContent = 'Entrar';
+            return;
+        }
+
+        // PAT válida - salvar e carregar dados
+        storePAT(pat);
+        hideAuthModal();
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
+        loadData();
+
+    } catch (e) {
+        showAuthError('Erro de conexão. Verifique sua internet e tente novamente.');
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
+    }
+}
+
+function showAuthError(msg) {
+    const el = document.getElementById('authError');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+function logout() {
+    clearPAT();
+    document.getElementById('kanbanBoard').innerHTML = '<div class="loading">Faça login para visualizar os dados.</div>';
+    document.getElementById('filtersContainer').style.display = 'none';
+    document.getElementById('statsBar').style.display = 'none';
+    document.getElementById('lastUpdate').textContent = '';
+    document.getElementById('userInfo').textContent = '';
+    showAuthModal();
+}
+
+async function apiCall(url) {
+    const resp = await fetch(url, { headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' } });
+    if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
+    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+    return resp.json();
+}
+
+async function runWiql(wiql) {
+    const url = `${API_BASE}/wit/wiql?api-version=7.1`;
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: wiql })
+    });
+    if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
+    if (!resp.ok) throw new Error(`WIQL error: ${resp.status}`);
+    return resp.json();
+}
+
+async function getWorkItemsBatch(ids, fields) {
+    const url = `${API_BASE}/wit/workitemsbatch?api-version=7.1`;
+    const results = [];
+    for (let i = 0; i < ids.length; i += 200) {
+        const chunk = ids.slice(i, i + 200);
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: chunk, fields: fields })
+        });
+        if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
+        if (!resp.ok) throw new Error(`Batch error: ${resp.status}`);
+        const data = await resp.json();
+        results.push(...data.value);
+    }
+    return results;
+}
+
+// Cache for parent->epic resolution
+const epicCache = {};
+
+async function resolveEpic(parentId, workItems) {
+    if (!parentId) return 'Sem épico';
+    if (epicCache[parentId]) return epicCache[parentId];
+
+    // Check if parent is already in our fetched items
+    const parentItem = workItems.find(w => w.id === parentId);
+    if (parentItem) {
+        // Parent is an Epic directly
+        epicCache[parentId] = parentItem.fields['System.Title'];
+        return epicCache[parentId];
+    }
+
+    // Fetch the parent to check its type
+    try {
+        const url = `${API_BASE}/wit/workitems/${parentId}?fields=System.Title,System.WorkItemType,System.Parent&api-version=7.1`;
+        const data = await apiCall(url);
+        const type = data.fields['System.WorkItemType'];
+        const title = data.fields['System.Title'];
+
+        if (type === 'Epic') {
+            epicCache[parentId] = title;
+            return title;
+        } else if (type === 'Feature' && data.fields['System.Parent']) {
+            // Go up one more level to the Epic
+            const grandparentId = data.fields['System.Parent'];
+            const gpUrl = `${API_BASE}/wit/workitems/${grandparentId}?fields=System.Title,System.WorkItemType&api-version=7.1`;
+            const gpData = await apiCall(gpUrl);
+            const epicTitle = gpData.fields['System.Title'];
+            epicCache[parentId] = epicTitle;
+            epicCache[grandparentId] = epicTitle;
+            return epicTitle;
+        } else {
+            epicCache[parentId] = title;
+            return title;
+        }
+    } catch (e) {
+        epicCache[parentId] = 'Sem épico';
+        return 'Sem épico';
+    }
+}
+
+async function loadData() {
+    const board = document.getElementById('kanbanBoard');
+    board.innerHTML = '<div class="loading"><div class="spinner"></div><br>Carregando dados do Azure DevOps...</div>';
+    document.getElementById('filtersContainer').style.display = 'none';
+    document.getElementById('statsBar').style.display = 'none';
+
+    try {
+        // 1. Query all User Stories and Bugs in Active/Review/Test/Resolved for Folha X
+        const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] IN ('User Story', 'Bug') AND [System.State] IN ('Active', 'Review', 'Test', 'Resolved') AND [System.AreaPath] UNDER 'HCM - Senior\\Folha X' ORDER BY [System.State], [System.Title]`;
+        const queryResult = await runWiql(wiql);
+        const ids = queryResult.workItems.map(w => w.id);
+
+        if (ids.length === 0) {
+            board.innerHTML = '<div class="loading">Nenhum item encontrado.</div>';
+            return;
+        }
+
+        // 2. Fetch details
+        const fields = ['System.Id', 'System.Title', 'System.State', 'System.WorkItemType', 'System.AssignedTo', 'System.Parent', 'System.Tags', 'Custom.SR_LEAD_TIME', 'Microsoft.VSTS.Scheduling.CompletedWork'];
+        const workItems = await getWorkItemsBatch(ids, fields);
+
+        // 3. Resolve epics (go up hierarchy)
+        const stories = [];
+        const parentIds = [...new Set(workItems.map(w => w.fields['System.Parent']).filter(Boolean))];
+
+        // Pre-fetch all parents in batch
+        if (parentIds.length > 0) {
+            const parentFields = ['System.Id', 'System.Title', 'System.WorkItemType', 'System.Parent'];
+            const parents = await getWorkItemsBatch(parentIds, parentFields);
+
+            // Find which parents are Features (need to go up one more level)
+            const grandparentIds = [];
+            for (const p of parents) {
+                const type = p.fields['System.WorkItemType'];
+                if (type === 'Epic') {
+                    epicCache[p.id] = p.fields['System.Title'];
+                } else if (p.fields['System.Parent']) {
+                    grandparentIds.push(p.fields['System.Parent']);
+                    // temp store the mapping
+                    epicCache[`_parent_${p.id}`] = p.fields['System.Parent'];
+                }
+            }
+
+            // Fetch grandparents (epics)
+            if (grandparentIds.length > 0) {
+                const uniqueGP = [...new Set(grandparentIds)];
+                const grandparents = await getWorkItemsBatch(uniqueGP, ['System.Id', 'System.Title']);
+                for (const gp of grandparents) {
+                    epicCache[gp.id] = gp.fields['System.Title'];
+                }
+                // Now resolve Feature -> Epic
+                for (const p of parents) {
+                    if (!epicCache[p.id] && epicCache[`_parent_${p.id}`]) {
+                        const gpId = epicCache[`_parent_${p.id}`];
+                        epicCache[p.id] = epicCache[gpId] || p.fields['System.Title'];
+                    }
+                }
+            }
+        }
+
+        // 4. Build stories array
+        const allTags = new Set();
+        for (const wi of workItems) {
+            const f = wi.fields;
+            const state = f['System.State'].toLowerCase();
+            const tags = f['System.Tags'] ? f['System.Tags'].split('; ').map(t => t.trim()).filter(Boolean) : [];
+            tags.forEach(t => allTags.add(t));
+            const assignee = f['System.AssignedTo'] ? f['System.AssignedTo'].displayName : '';
+            const assigneeImg = f['System.AssignedTo'] ? f['System.AssignedTo'].imageUrl : '';
+            const epicTitle = f['System.Parent'] ? (epicCache[f['System.Parent']] || 'Sem épico') : 'Sem épico';
+
+            stories.push({
+                id: f['System.Id'],
+                title: f['System.Title'],
+                state: state,
+                type: f['System.WorkItemType'] === 'Bug' ? 'Bug' : 'US',
+                assignee: assignee,
+                assigneeImg: assigneeImg,
+                epic: epicTitle,
+                tags: tags,
+                leadTime: f['Custom.SR_LEAD_TIME'] || null,
+                completedWork: f['Microsoft.VSTS.Scheduling.CompletedWork'] || null
+            });
+        }
+
+        // 5. Populate tag filter
+        const tagSelect = document.getElementById('tagFilter');
+        tagSelect.innerHTML = '<option value="">Todas as tags</option>';
+        [...allTags].sort().forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            tagSelect.appendChild(opt);
+        });
+
+        // 6. Render board
+        renderBoard(stories);
+
+        document.getElementById('filtersContainer').style.display = 'flex';
+        document.getElementById('statsBar').style.display = 'flex';
+        document.getElementById('lastUpdate').textContent = `  Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+
+        // Store globally for filtering
+        window._stories = stories;
+
+    } catch (error) {
+        board.innerHTML = `<div class="loading" style="color:#f87171;">❌ Erro ao carregar dados:<br><br>${error.message}<br><br>Verifique se a PAT está válida e tente novamente.</div>`;
+        console.error(error);
+    }
+}
+
+function renderBoard(stories) {
+    // Group by epic
+    const epics = {};
+    stories.forEach(s => {
+        if (!epics[s.epic]) epics[s.epic] = [];
+        epics[s.epic].push(s);
+    });
+
+    // Sort epics: those with active items first, then by name
+    const epicNames = Object.keys(epics).sort((a, b) => {
+        const aActive = epics[a].some(s => s.state === 'active' || s.state === 'review');
+        const bActive = epics[b].some(s => s.state === 'active' || s.state === 'review');
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return a.localeCompare(b);
+    });
+
+    const board = document.getElementById('kanbanBoard');
+    let html = '';
+
+    epicNames.forEach(epicName => {
+        const items = epics[epicName];
+        const active = items.filter(s => s.state === 'active');
+        const review = items.filter(s => s.state === 'review');
+        const test = items.filter(s => s.state === 'test');
+        const resolved = items.filter(s => s.state === 'resolved');
+
+        html += `<div class="epic-section" data-epic="${epicName}">
+            <div class="epic-header" onclick="toggleEpic(this)">
+                <span class="chevron">▼</span>
+                <h2>${epicName}</h2>
+                <span class="epic-count">${items.length} item${items.length > 1 ? 's' : ''}</span>
+            </div>
+            <div class="epic-body">
+                <div class="kanban-column">
+                    <div class="column-header active">Active (${active.length})</div>
+                    ${active.length ? active.map(createCard).join('') : '<div class="no-items">—</div>'}
+                </div>
+                <div class="kanban-column">
+                    <div class="column-header review">Review (${review.length})</div>
+                    ${review.length ? review.map(createCard).join('') : '<div class="no-items">—</div>'}
+                </div>
+                <div class="kanban-column">
+                    <div class="column-header test">Test (${test.length})</div>
+                    ${test.length ? test.map(createCard).join('') : '<div class="no-items">—</div>'}
+                </div>
+                <div class="kanban-column">
+                    <div class="column-header resolved">Resolved (${resolved.length})</div>
+                    ${resolved.length ? resolved.map(createCard).join('') : '<div class="no-items">—</div>'}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    board.innerHTML = html;
+    updateStats();
+}
+
+function createCard(story) {
+    const tagsHtml = story.tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+    const typeLabel = story.type === 'Bug' ? '<span class="card-type-badge bug">🐛 Bug</span>' : '';
+    const leadTimeHtml = story.leadTime ? `<span class="card-leadtime">⏱ ${story.leadTime}d</span>` : '';
+    const completedHtml = story.completedWork ? `<span class="card-hours">🕐 ${story.completedWork}h</span>` : '';
+    const avatarHtml = '';
+    return `<div class="card ${story.state}" data-id="${story.id}" data-title="${story.title.toLowerCase()}" data-assignee="${(story.assignee||'').toLowerCase()}" data-tags="${story.tags.join(',')}">
+        <div class="card-title">${typeLabel}${story.title}</div>
+        <div class="card-tags">${tagsHtml}</div>
+        <div class="card-meta">
+            <a class="card-id" href="https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_workitems/edit/${story.id}" target="_blank" title="Abrir no Azure DevOps">#${story.id}</a>
+            ${leadTimeHtml}
+            ${completedHtml}
+            <span class="card-assignee">${story.assignee || '—'}</span>
+        </div>
+    </div>`;
+}
+
+function toggleEpic(header) {
+    header.classList.toggle('collapsed');
+    const body = header.nextElementSibling;
+    body.classList.toggle('hidden');
+}
+
+function updateStats() {
+    const visible = document.querySelectorAll('.card:not(.hidden-card)');
+    let counts = { active: 0, review: 0, test: 0, resolved: 0 };
+    visible.forEach(card => {
+        if (card.classList.contains('active')) counts.active++;
+        if (card.classList.contains('review')) counts.review++;
+        if (card.classList.contains('test')) counts.test++;
+        if (card.classList.contains('resolved')) counts.resolved++;
+    });
+    document.getElementById('stat-active').textContent = counts.active;
+    document.getElementById('stat-review').textContent = counts.review;
+    document.getElementById('stat-test').textContent = counts.test;
+    document.getElementById('stat-resolved').textContent = counts.resolved;
+}
+
+function filterCards() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    const tagFilter = document.getElementById('tagFilter').value;
+    const cards = document.querySelectorAll('.card');
+    const epicSections = document.querySelectorAll('.epic-section');
+
+    cards.forEach(card => {
+        const title = card.getAttribute('data-title');
+        const id = card.getAttribute('data-id');
+        const assignee = card.getAttribute('data-assignee');
+        const tags = card.getAttribute('data-tags');
+        const matchText = !query || title.includes(query) || id.includes(query) || assignee.includes(query);
+        const matchTag = !tagFilter || tags.split(',').includes(tagFilter);
+        card.classList.toggle('hidden-card', !(matchText && matchTag));
+    });
+
+    epicSections.forEach(section => {
+        const visibleCards = section.querySelectorAll('.card:not(.hidden-card)');
+        section.classList.toggle('hidden-epic', visibleCards.length === 0);
+    });
+
+    updateStats();
+}
+
+// Load on page open - verifica se tem PAT salva
+if (getStoredPAT()) {
+    loadData();
+} else {
+    document.getElementById('kanbanBoard').innerHTML = '<div class="loading">Faça login para visualizar os dados.</div>';
+    showAuthModal();
+}
+</script>
+</body>
+</html>
