@@ -3,75 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kanban por épicos - Folha X</title>
+    <title>Kanban por épicos Folha X</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; padding: 24px; }
-        .header { text-align: center; margin-bottom: 24px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; padding: 24px 16px; }
+        .header { text-align: center; margin-bottom: 18px; }
         .header h1 { font-size: 1.8rem; font-weight: 600; color: #ffffff; margin-bottom: 6px; }
-        .header .subtitle { font-size: 0.95rem; color: #8892b0; }
+        .header .board-source { font-size: 0.78rem; color: #64748b; margin-top: 4px; }
         .loading { text-align: center; padding: 60px; color: #8892b0; font-size: 1.1rem; }
         .loading .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid #2d2d44; border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .filters-container { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .filters-container input, .filters-container select {
-            padding: 10px 16px; border-radius: 8px; border: 1px solid #2d2d44;
-            background: #16213e; color: #e0e0e0; font-size: 0.9rem;
+
+        /* Barra de ações */
+        .toolbar { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; font-size: 0.8rem; color: #64748b; }
+        .refresh-btn { background: #1e3a5f; color: #4a9eff; border: 1px solid #4a9eff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .refresh-btn:hover { background: #264a73; }
+        .refresh-btn:disabled { opacity: 0.6; cursor: wait; }
+        .logout-btn { background: #3b1f1f; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .logout-btn:hover { background: #5c2a2a; }
+        .status { color: #f59e0b; }
+        .status.error { color: #f87171; }
+
+        /* Filtros */
+        .filters-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+        .filters-container input[type=text], .filters-container select {
+            padding: 9px 14px; border-radius: 8px; border: 1px solid #2d2d44;
+            background: #16213e; color: #e0e0e0; font-size: 0.85rem;
             font-family: 'Segoe UI', sans-serif; outline: none; transition: border-color 0.2s;
         }
-        .filters-container input { max-width: 400px; width: 100%; }
-        .filters-container select { min-width: 180px; cursor: pointer; }
+        .filters-container input[type=text] { width: 100%; max-width: 340px; }
+        .filters-container select { cursor: pointer; max-width: 100%; }
         .filters-container input:focus, .filters-container select:focus { border-color: #4a9eff; }
         .filters-container input::placeholder { color: #5a6580; }
-        .stats-bar { display: flex; justify-content: center; gap: 24px; margin-bottom: 28px; flex-wrap: wrap; }
-        .stat-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #a0aec0; }
-        .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .stat-dot.active { background: #4a9eff; }
-        .stat-dot.review { background: #a855f7; }
-        .stat-dot.test { background: #f59e0b; }
-        .stat-dot.resolved { background: #10b981; }
-        .stat-count { font-weight: 600; color: #fff; }
-        .epic-section { margin-bottom: 20px; background: #16213e; border-radius: 12px; overflow: hidden; border: 1px solid #2d2d44; }
-        .epic-header { display: flex; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; transition: background 0.2s; gap: 10px; }
-        .epic-header:hover { background: #1a2744; }
-        .epic-header .chevron { font-size: 0.75rem; transition: transform 0.2s; color: #8892b0; }
-        .epic-header.collapsed .chevron { transform: rotate(-90deg); }
-        .epic-header h2 { font-size: 0.95rem; font-weight: 600; color: #cbd5e1; flex: 1; }
-        .epic-header .epic-count { font-size: 0.8rem; color: #64748b; background: #1e293b; padding: 2px 10px; border-radius: 12px; }
-        .epic-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid #2d2d44; }
-        .epic-body.hidden { display: none; }
-        .kanban-column { padding: 12px; min-height: 80px; border-right: 1px solid #2d2d44; }
-        .kanban-column:last-child { border-right: none; }
-        .column-header { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid transparent; }
-        .column-header.active { color: #4a9eff; border-bottom-color: #4a9eff; }
-        .column-header.review { color: #a855f7; border-bottom-color: #a855f7; }
-        .column-header.test { color: #f59e0b; border-bottom-color: #f59e0b; }
-        .column-header.resolved { color: #10b981; border-bottom-color: #10b981; }
-        .card { background: #1e293b; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid transparent; transition: transform 0.15s, box-shadow 0.15s; }
+        .clear-btn { background: none; border: none; color: #64748b; font-size: 0.8rem; cursor: pointer; text-decoration: underline; }
+        .clear-btn:hover { color: #a0aec0; }
+
+        /* Quadro: cabeçalho fixo + raias por épico */
+        .board-scroll { overflow: auto; max-height: calc(100vh - 32px); border: 1px solid #2d2d44; border-radius: 12px; background: #16213e; }
+        .board { display: grid; min-width: min-content; }
+        .col-header { position: sticky; top: 0; z-index: 3; background: #111a33; padding: 12px; border-bottom: 2px solid var(--c); border-right: 1px solid #2d2d44; }
+        .col-header.last, .cell.last { border-right: none; }
+        .col-header .col-name { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--c); }
+        .col-header .col-info { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.72rem; color: #8892b0; }
+        .col-count { font-weight: 700; color: #fff; font-size: 0.85rem; }
+        .wip { padding: 1px 7px; border-radius: 10px; background: #1e293b; color: #94a3b8; }
+        .wip.over { background: #7f1d1d; color: #fca5a5; font-weight: 600; }
+        .col-header.over { background: #2a1620; }
+
+        .lane-header { grid-column: 1 / -1; border-top: 1px solid #2d2d44; cursor: pointer; user-select: none; transition: background 0.2s; }
+        .lane-header:hover { background: #1a2744; }
+        .lane-header-inner { position: sticky; left: 0; display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; max-width: 100vw; }
+        .lane-header .chevron { font-size: 0.7rem; transition: transform 0.2s; color: #8892b0; }
+        .lane-header.collapsed .chevron { transform: rotate(-90deg); }
+        .lane-title { font-size: 0.9rem; font-weight: 600; color: #cbd5e1; }
+        .epic-count { font-size: 0.75rem; color: #64748b; background: #1e293b; padding: 2px 10px; border-radius: 12px; white-space: nowrap; }
+        .lane-mini { display: none; gap: 8px; font-size: 0.72rem; color: #94a3b8; }
+        .lane-header.collapsed .lane-mini { display: inline-flex; }
+        .lane-mini span { display: inline-flex; align-items: center; gap: 4px; }
+        .lane-mini i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+        .cell { padding: 8px 10px 10px; border-right: 1px solid #2d2d44; min-height: 40px; }
+        .board-empty { grid-column: 1 / -1; text-align: center; padding: 40px; color: #64748b; font-size: 0.9rem; border-top: 1px solid #2d2d44; }
+
+        /* Cards */
+        .card { background: #1e293b; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; border-left: 3px solid var(--c); transition: transform 0.15s, box-shadow 0.15s; }
         .card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .card.active { border-left-color: #4a9eff; }
-        .card.review { border-left-color: #a855f7; }
-        .card.test { border-left-color: #f59e0b; }
-        .card.resolved { border-left-color: #10b981; }
-        .card-title { font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin-bottom: 6px; line-height: 1.3; }
-        .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #64748b; }
-        .card-id { font-weight: 600; color: #8892b0; text-decoration: none; transition: color 0.2s; }
-        .card-id:hover { color: #4a9eff; text-decoration: underline; }
-        .card-assignee { color: #94a3b8; }
-        .card-leadtime { color: #f59e0b; font-weight: 600; font-size: 0.7rem; }
-        .card-hours { color: #38bdf8; font-weight: 600; font-size: 0.7rem; }
+        .card-title { font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin-bottom: 6px; line-height: 1.3; word-break: break-word; }
         .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
         .card-tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: #2d3748; color: #a0aec0; border: 1px solid #4a5568; }
         .card-type-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
         .card-type-badge.bug { background: #7f1d1d; color: #fca5a5; }
-        .no-items { font-size: 0.75rem; color: #475569; font-style: italic; padding: 8px 0; }
-        .card.hidden-card { display: none; }
-        .epic-section.hidden-epic { display: none; }
-        .refresh-btn { background: #1e3a5f; color: #4a9eff; border: 1px solid #4a9eff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
-        .refresh-btn:hover { background: #264a73; }
-        .logout-btn { background: #3b1f1f; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; margin-left: 8px; }
-        .logout-btn:hover { background: #5c2a2a; }
-        .last-update { font-size: 0.8rem; color: #64748b; text-align: center; margin-bottom: 16px; }
+        .card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: #64748b; }
+        .card-id { font-weight: 600; color: #8892b0; text-decoration: none; transition: color 0.2s; }
+        .card-id:hover { color: #4a9eff; text-decoration: underline; }
+        .meta-badges { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+        .card-leadtime { color: #f59e0b; font-weight: 600; }
+        .card-hours { color: #38bdf8; font-weight: 600; }
+        .aging { padding: 0 5px; border-radius: 4px; background: #1a2338; color: #94a3b8; white-space: nowrap; }
+        .aging.estimated { font-style: italic; }
+        .aging.warn { background: #422c06; color: #fbbf24; font-weight: 600; }
+        .aging.danger { background: #4c1515; color: #fca5a5; font-weight: 600; }
+        .avatar { position: relative; flex: none; width: 22px; height: 22px; border-radius: 50%; background: #334155; color: #cbd5e1; font-size: 0.6rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+        .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
         /* Modal de autenticação */
         .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .auth-modal { background: #16213e; border: 1px solid #2d2d44; border-radius: 16px; padding: 36px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
@@ -87,21 +100,24 @@
         .auth-modal .auth-help { color: #64748b; font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
         .auth-modal .auth-help a { color: #4a9eff; text-decoration: none; }
         .auth-modal .auth-help a:hover { text-decoration: underline; }
-        .user-info { font-size: 0.8rem; color: #8892b0; margin-left: 12px; }
-        @media (max-width: 900px) { .epic-body { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 550px) { .epic-body { grid-template-columns: 1fr; } .kanban-column { border-right: none; border-bottom: 1px solid #2d2d44; } }
+
+        @media (max-width: 600px) {
+            body { padding: 16px; }
+            .header h1 { font-size: 1.35rem; }
+            .filters-container > * { flex: 1 1 100%; }
+            .filters-container input[type=text] { max-width: none; }
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Kanban por épicos - Folha X</h1>
-        <p class="subtitle">Projeto: HCM - Senior | Dados em tempo real do Azure DevOps</p>
+        <h1>Kanban por épicos Folha X</h1>
     </div>
-    <div class="last-update">
-        <button class="refresh-btn" onclick="loadData()">🔄 Atualizar</button>
+    <div class="toolbar">
+        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">🔄 Atualizar</button>
         <button class="logout-btn" onclick="logout()">🔒 Trocar PAT</button>
         <span id="lastUpdate"></span>
-        <span class="user-info" id="userInfo"></span>
+        <span class="status" id="status"></span>
     </div>
 
     <!-- Modal de Autenticação -->
@@ -124,32 +140,132 @@
         </div>
     </div>
     <div class="filters-container" id="filtersContainer" style="display:none;">
-        <input type="text" id="searchInput" placeholder="Filtrar por título, ID ou responsável..." oninput="filterCards()">
-        <select id="tagFilter" onchange="filterCards()"><option value="">Todas as tags</option></select>
-    </div>
-    <div class="stats-bar" id="statsBar" style="display:none;">
-        <div class="stat-item"><span class="stat-dot active"></span> Active: <span class="stat-count" id="stat-active">0</span></div>
-        <div class="stat-item"><span class="stat-dot review"></span> Review: <span class="stat-count" id="stat-review">0</span></div>
-        <div class="stat-item"><span class="stat-dot test"></span> Test: <span class="stat-count" id="stat-test">0</span></div>
-        <div class="stat-item"><span class="stat-dot resolved"></span> Resolved: <span class="stat-count" id="stat-resolved">0</span></div>
+        <input type="text" id="searchInput" placeholder="Filtrar por título, ID ou responsável..." oninput="onFilterChange()">
+        <select id="tagFilter" onchange="onFilterChange()"></select>
+        <select id="assigneeFilter" onchange="onFilterChange()"></select>
+        <select id="typeFilter" onchange="onFilterChange()">
+            <option value="">Todos os tipos</option>
+            <option value="US">User Story</option>
+            <option value="Bug">Bug</option>
+        </select>
+        <button class="clear-btn" onclick="clearFilters()">Limpar filtros</button>
     </div>
     <div id="kanbanBoard"><div class="loading"><div class="spinner"></div><br>Carregando dados do Azure DevOps...</div></div>
 <script>
 const ORG = 'senior-sistemas';
 const PROJECT = 'HCM - Senior';
+const AREA_PATH = 'HCM - Senior\\Folha X';
 const API_BASE = `https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_apis`;
+
+// --- Configuração do quadro ---
+// Nome do time no Azure cujo quadro define as colunas. Vazio = tenta "Folha X" e depois procura um time com "Folha X" no nome.
+const TEAM_NAME = '';
+const BOARD_NAMES = ['Stories', 'Histórias', 'User Stories'];
+// Colunas de entrada (New) e saída (Closed) do quadro não aparecem no kanban
+const EXCLUDED_COLUMN_TYPES = ['incoming', 'outgoing'];
+// Colunas do quadro que não aparecem no kanban (comparação ignora maiúsculas e acentos)
+const HIDDEN_COLUMNS = ['Em análise'];
+// Colunas usadas quando não for possível ler o quadro do Azure (mesmo comportamento da versão 1)
+const FALLBACK_COLUMNS = [
+    { name: 'Active', limit: 0, mappings: { 'User Story': 'Active', 'Bug': 'Active' } },
+    { name: 'Review', limit: 0, mappings: { 'User Story': 'Review', 'Bug': 'Review' } },
+    { name: 'Aguardando testes', limit: 0, mappings: {} },
+    { name: 'Test', limit: 0, mappings: { 'User Story': 'Test', 'Bug': 'Test' } },
+    { name: 'Resolved', limit: 0, mappings: { 'User Story': 'Resolved', 'Bug': 'Resolved' } }
+];
+const DONE_STATES = ['Resolved', 'Closed', 'Done'];
+const COLUMN_COLORS = ['#4a9eff', '#a855f7', '#06b6d4', '#f59e0b', '#ec4899', '#84cc16', '#f97316', '#38bdf8'];
+const DONE_COLOR = '#10b981';
+const TAG_OPTIONS = ['calculoFolha', 'Integrações-X', 'compliance'];
+// Dias na mesma coluna para o card ficar amarelo / vermelho
+const AGING_WARN_DAYS = 3;
+const AGING_DANGER_DAYS = 7;
+
+const PAT_KEY = 'azdo_pat_kanban_folhax';
+const PREFS_KEY = 'kanban_folhax_v2_prefs';
+const DEFAULT_PREFS = { search: '', tag: '', assignee: '', type: '', collapsed: [] };
+
+// --- Utilitários ---
+function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function norm(value) {
+    return String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+}
+
+function wiqlList(values) {
+    return values.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ');
+}
+
+function daysSince(date) {
+    return Math.floor((Date.now() - date.getTime()) / 86400000);
+}
+
+async function mapLimit(items, limit, fn) {
+    let next = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) await fn(items[next++]);
+    });
+    await Promise.all(workers);
+}
+
+function setStatus(msg, isError) {
+    const el = document.getElementById('status');
+    el.textContent = msg || '';
+    el.classList.toggle('error', !!isError);
+}
+
+// --- Preferências (filtros, raias recolhidas, auto-atualização) ---
+let prefs = loadPrefs();
+
+function loadPrefs() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+        return { ...DEFAULT_PREFS, ...saved };
+    } catch (e) {
+        return { ...DEFAULT_PREFS };
+    }
+}
+
+function savePrefs() {
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* armazenamento indisponível */ }
+}
+
+function applyPrefsToInputs() {
+    document.getElementById('searchInput').value = prefs.search;
+    document.getElementById('tagFilter').value = prefs.tag;
+    document.getElementById('assigneeFilter').value = prefs.assignee;
+    document.getElementById('typeFilter').value = prefs.type;
+}
+
+function onFilterChange() {
+    prefs.search = document.getElementById('searchInput').value;
+    prefs.tag = document.getElementById('tagFilter').value;
+    prefs.assignee = document.getElementById('assigneeFilter').value;
+    prefs.type = document.getElementById('typeFilter').value;
+    savePrefs();
+    render();
+}
+
+function clearFilters() {
+    prefs = { ...DEFAULT_PREFS, collapsed: prefs.collapsed };
+    savePrefs();
+    applyPrefsToInputs();
+    render();
+}
 
 // --- Autenticação via localStorage ---
 function getStoredPAT() {
-    return localStorage.getItem('azdo_pat_kanban_folhax');
+    try { return localStorage.getItem(PAT_KEY); } catch (e) { return null; }
 }
 
 function storePAT(pat) {
-    localStorage.setItem('azdo_pat_kanban_folhax', pat);
+    try { localStorage.setItem(PAT_KEY, pat); } catch (e) { /* armazenamento indisponível */ }
 }
 
 function clearPAT() {
-    localStorage.removeItem('azdo_pat_kanban_folhax');
+    try { localStorage.removeItem(PAT_KEY); } catch (e) { /* armazenamento indisponível */ }
 }
 
 function getAuthHeader() {
@@ -189,27 +305,22 @@ async function authenticate() {
 
         if (resp.status === 401 || resp.status === 403) {
             showAuthError('PAT inválida ou sem permissão. Verifique o token e tente novamente.');
-            btn.disabled = false;
-            btn.textContent = 'Entrar';
             return;
         }
 
         if (!resp.ok) {
             showAuthError(`Erro ao verificar PAT: HTTP ${resp.status}`);
-            btn.disabled = false;
-            btn.textContent = 'Entrar';
             return;
         }
 
         // PAT válida - salvar e carregar dados
         storePAT(pat);
         hideAuthModal();
-        btn.disabled = false;
-        btn.textContent = 'Entrar';
         loadData();
 
     } catch (e) {
         showAuthError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
         btn.disabled = false;
         btn.textContent = 'Entrar';
     }
@@ -223,19 +334,21 @@ function showAuthError(msg) {
 
 function logout() {
     clearPAT();
+    stories = null;
+    agingToken++;
     document.getElementById('kanbanBoard').innerHTML = '<div class="loading">Faça login para visualizar os dados.</div>';
     document.getElementById('filtersContainer').style.display = 'none';
-    document.getElementById('statsBar').style.display = 'none';
     document.getElementById('lastUpdate').textContent = '';
-    document.getElementById('userInfo').textContent = '';
+    setStatus('');
     showAuthModal();
 }
 
-async function apiCall(url) {
-    const resp = await fetch(url, { headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' } });
-    if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
-    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-    return resp.json();
+function handleAuthFailure(resp) {
+    if (resp.status === 401 || resp.status === 403) {
+        clearPAT();
+        showAuthModal();
+        throw new Error('Token expirado ou sem permissão. Faça login novamente.');
+    }
 }
 
 async function runWiql(wiql) {
@@ -245,7 +358,7 @@ async function runWiql(wiql) {
         headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: wiql })
     });
-    if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
+    handleAuthFailure(resp);
     if (!resp.ok) throw new Error(`WIQL error: ${resp.status}`);
     return resp.json();
 }
@@ -260,7 +373,7 @@ async function getWorkItemsBatch(ids, fields) {
             headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids: chunk, fields: fields })
         });
-        if (resp.status === 401 || resp.status === 403) { clearPAT(); showAuthModal(); throw new Error('Token expirado ou sem permissão. Faça login novamente.'); }
+        handleAuthFailure(resp);
         if (!resp.ok) throw new Error(`Batch error: ${resp.status}`);
         const data = await resp.json();
         results.push(...data.value);
@@ -268,279 +381,374 @@ async function getWorkItemsBatch(ids, fields) {
     return results;
 }
 
-// Cache for parent->epic resolution
+// Chamada opcional: qualquer falha (inclusive falta de permissão) retorna null sem derrubar a PAT
+async function softGet(url) {
+    try {
+        const resp = await fetch(url, { headers: { 'Authorization': getAuthHeader() } });
+        if (!resp.ok) return null;
+        return await resp.json();
+    } catch (e) {
+        return null;
+    }
+}
+
+// --- Colunas do quadro do Azure ---
+let boardConfig = null;
+
+async function tryTeamBoard(team) {
+    const base = `https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/${encodeURIComponent(team)}/_apis/work/boards`;
+    const boards = await softGet(`${base}?api-version=7.1`);
+    if (!boards || !boards.value || !boards.value.length) return null;
+    const board = boards.value.find(b => BOARD_NAMES.includes(b.name)) || boards.value[0];
+    const cols = await softGet(`${base}/${encodeURIComponent(board.id)}/columns?api-version=7.1`);
+    if (!cols || !cols.value || !cols.value.length) return null;
+    const shown = cols.value.filter(c => !EXCLUDED_COLUMN_TYPES.includes(c.columnType) && !HIDDEN_COLUMNS.some(h => norm(h) === norm(c.name)));
+    if (!shown.length) return null;
+    return {
+        source: `Colunas do quadro "${board.name}" do time "${team}" no Azure`,
+        allColumnNames: cols.value.map(c => norm(c.name)),
+        columns: shown.map(c => ({ name: c.name, limit: c.itemLimit || 0, mappings: c.stateMappings || {} }))
+    };
+}
+
+async function loadBoardConfig() {
+    const candidates = TEAM_NAME ? [TEAM_NAME] : ['Folha X'];
+    for (const team of candidates) {
+        const cfg = await tryTeamBoard(team);
+        if (cfg) return cfg;
+    }
+    if (!TEAM_NAME) {
+        const teams = await softGet(`https://dev.azure.com/${ORG}/_apis/projects/${encodeURIComponent(PROJECT)}/teams?$top=500&api-version=7.1`);
+        const matches = (teams && teams.value || []).filter(t => norm(t.name).includes('folha x') && !candidates.includes(t.name));
+        for (const t of matches) {
+            const cfg = await tryTeamBoard(t.name);
+            if (cfg) return cfg;
+        }
+    }
+    return {
+        source: 'Colunas padrão (não foi possível ler o quadro do Azure; ajuste TEAM_NAME no arquivo)',
+        allColumnNames: null,
+        columns: FALLBACK_COLUMNS
+    };
+}
+
+function decorateColumns(columns) {
+    let colorIdx = 0;
+    return columns.map(c => {
+        const states = Object.values(c.mappings);
+        const isDone = states.length > 0 && states.every(s => DONE_STATES.includes(s));
+        const color = isDone ? DONE_COLOR : COLUMN_COLORS[colorIdx++ % COLUMN_COLORS.length];
+        return { ...c, key: norm(c.name), color, isDone };
+    });
+}
+
+function findColumn(story, columns) {
+    const bc = norm(story.boardColumn);
+    if (bc) {
+        const idx = columns.findIndex(c => c.key === bc);
+        if (idx >= 0) return idx;
+        // Item está numa coluna do quadro que não é exibida (ex.: New/Closed)
+        if (boardConfig.allColumnNames && boardConfig.allColumnNames.includes(bc)) return -1;
+    }
+    return columns.findIndex(c => c.mappings[story.typeName] === story.stateRaw);
+}
+
+// --- Carregamento ---
 const epicCache = {};
+let stories = null;
+let columns = [];
+let loading = false;
+let agingToken = 0;
 
-async function resolveEpic(parentId, workItems) {
-    if (!parentId) return 'Sem épico';
-    if (epicCache[parentId]) return epicCache[parentId];
+async function resolveEpics(workItems) {
+    const parentIds = [...new Set(workItems.map(w => w.fields['System.Parent']).filter(Boolean))];
+    if (parentIds.length === 0) return;
 
-    // Check if parent is already in our fetched items
-    const parentItem = workItems.find(w => w.id === parentId);
-    if (parentItem) {
-        // Parent is an Epic directly
-        epicCache[parentId] = parentItem.fields['System.Title'];
-        return epicCache[parentId];
+    const parents = await getWorkItemsBatch(parentIds, ['System.Id', 'System.Title', 'System.WorkItemType', 'System.Parent']);
+
+    // Pais que não são épicos (ex.: Features) precisam subir mais um nível
+    const grandparentIds = [];
+    const parentToGrandparent = {};
+    for (const p of parents) {
+        if (p.fields['System.WorkItemType'] === 'Epic') {
+            epicCache[p.id] = p.fields['System.Title'];
+        } else if (p.fields['System.Parent']) {
+            grandparentIds.push(p.fields['System.Parent']);
+            parentToGrandparent[p.id] = p.fields['System.Parent'];
+        } else {
+            epicCache[p.id] = p.fields['System.Title'];
+        }
     }
 
-    // Fetch the parent to check its type
-    try {
-        const url = `${API_BASE}/wit/workitems/${parentId}?fields=System.Title,System.WorkItemType,System.Parent&api-version=7.1`;
-        const data = await apiCall(url);
-        const type = data.fields['System.WorkItemType'];
-        const title = data.fields['System.Title'];
-
-        if (type === 'Epic') {
-            epicCache[parentId] = title;
-            return title;
-        } else if (type === 'Feature' && data.fields['System.Parent']) {
-            // Go up one more level to the Epic
-            const grandparentId = data.fields['System.Parent'];
-            const gpUrl = `${API_BASE}/wit/workitems/${grandparentId}?fields=System.Title,System.WorkItemType&api-version=7.1`;
-            const gpData = await apiCall(gpUrl);
-            const epicTitle = gpData.fields['System.Title'];
-            epicCache[parentId] = epicTitle;
-            epicCache[grandparentId] = epicTitle;
-            return epicTitle;
-        } else {
-            epicCache[parentId] = title;
-            return title;
+    if (grandparentIds.length > 0) {
+        const grandparents = await getWorkItemsBatch([...new Set(grandparentIds)], ['System.Id', 'System.Title']);
+        for (const gp of grandparents) epicCache[gp.id] = gp.fields['System.Title'];
+        for (const p of parents) {
+            if (parentToGrandparent[p.id]) epicCache[p.id] = epicCache[parentToGrandparent[p.id]] || p.fields['System.Title'];
         }
-    } catch (e) {
-        epicCache[parentId] = 'Sem épico';
-        return 'Sem épico';
     }
 }
 
 async function loadData() {
+    if (loading || !getStoredPAT()) return;
+    loading = true;
     const board = document.getElementById('kanbanBoard');
-    board.innerHTML = '<div class="loading"><div class="spinner"></div><br>Carregando dados do Azure DevOps...</div>';
-    document.getElementById('filtersContainer').style.display = 'none';
-    document.getElementById('statsBar').style.display = 'none';
+    const firstLoad = !stories;
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    if (firstLoad) {
+        board.innerHTML = '<div class="loading"><div class="spinner"></div><br>Carregando dados do Azure DevOps...</div>';
+    } else {
+        setStatus('Atualizando…');
+    }
 
     try {
-        // 1. Query all User Stories and Bugs in Active/Review/Test/Resolved for Folha X
-        const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] IN ('User Story', 'Bug') AND [System.State] IN ('Active', 'Review', 'Test', 'Resolved') AND [System.AreaPath] UNDER 'HCM - Senior\\Folha X' ORDER BY [System.State], [System.Title]`;
+        // 1. Colunas do quadro (lidas uma vez por sessão da página)
+        if (!boardConfig) {
+            boardConfig = await loadBoardConfig();
+            console.info(boardConfig.source);
+        }
+        columns = decorateColumns(boardConfig.columns);
+
+        // 2. Itens nas colunas exibidas (pelo nome da coluna do quadro ou pelo estado mapeado)
+        const states = [...new Set(columns.flatMap(c => Object.values(c.mappings)))];
+        const conditions = [`[System.BoardColumn] IN (${wiqlList(columns.map(c => c.name))})`];
+        if (states.length) conditions.unshift(`[System.State] IN (${wiqlList(states)})`);
+        const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] IN ('User Story', 'Bug') AND (${conditions.join(' OR ')}) AND [System.AreaPath] UNDER '${AREA_PATH.replace(/'/g, "''")}' ORDER BY [System.Title]`;
         const queryResult = await runWiql(wiql);
         const ids = queryResult.workItems.map(w => w.id);
 
-        if (ids.length === 0) {
-            board.innerHTML = '<div class="loading">Nenhum item encontrado.</div>';
-            return;
-        }
+        // 3. Detalhes
+        const fields = ['System.Id', 'System.Title', 'System.State', 'System.WorkItemType', 'System.AssignedTo', 'System.Parent', 'System.Tags', 'System.BoardColumn', 'System.CreatedDate', 'Microsoft.VSTS.Common.StateChangeDate', 'Custom.SR_LEAD_TIME', 'Microsoft.VSTS.Scheduling.CompletedWork'];
+        const workItems = ids.length ? await getWorkItemsBatch(ids, fields) : [];
 
-        // 2. Fetch details
-        const fields = ['System.Id', 'System.Title', 'System.State', 'System.WorkItemType', 'System.AssignedTo', 'System.Parent', 'System.Tags', 'Custom.SR_LEAD_TIME', 'Microsoft.VSTS.Scheduling.CompletedWork'];
-        const workItems = await getWorkItemsBatch(ids, fields);
+        // 4. Épicos
+        await resolveEpics(workItems);
 
-        // 3. Resolve epics (go up hierarchy)
-        const stories = [];
-        const parentIds = [...new Set(workItems.map(w => w.fields['System.Parent']).filter(Boolean))];
-
-        // Pre-fetch all parents in batch
-        if (parentIds.length > 0) {
-            const parentFields = ['System.Id', 'System.Title', 'System.WorkItemType', 'System.Parent'];
-            const parents = await getWorkItemsBatch(parentIds, parentFields);
-
-            // Find which parents are Features (need to go up one more level)
-            const grandparentIds = [];
-            for (const p of parents) {
-                const type = p.fields['System.WorkItemType'];
-                if (type === 'Epic') {
-                    epicCache[p.id] = p.fields['System.Title'];
-                } else if (p.fields['System.Parent']) {
-                    grandparentIds.push(p.fields['System.Parent']);
-                    // temp store the mapping
-                    epicCache[`_parent_${p.id}`] = p.fields['System.Parent'];
-                }
-            }
-
-            // Fetch grandparents (epics)
-            if (grandparentIds.length > 0) {
-                const uniqueGP = [...new Set(grandparentIds)];
-                const grandparents = await getWorkItemsBatch(uniqueGP, ['System.Id', 'System.Title']);
-                for (const gp of grandparents) {
-                    epicCache[gp.id] = gp.fields['System.Title'];
-                }
-                // Now resolve Feature -> Epic
-                for (const p of parents) {
-                    if (!epicCache[p.id] && epicCache[`_parent_${p.id}`]) {
-                        const gpId = epicCache[`_parent_${p.id}`];
-                        epicCache[p.id] = epicCache[gpId] || p.fields['System.Title'];
-                    }
-                }
-            }
-        }
-
-        // 4. Build stories array
-        const allTags = new Set();
+        // 5. Monta a lista
+        const previous = new Map((stories || []).map(s => [s.id, s]));
+        const list = [];
         for (const wi of workItems) {
             const f = wi.fields;
-            const state = f['System.State'].toLowerCase();
-            const tags = f['System.Tags'] ? f['System.Tags'].split('; ').map(t => t.trim()).filter(Boolean) : [];
-            tags.forEach(t => allTags.add(t));
-            const assignee = f['System.AssignedTo'] ? f['System.AssignedTo'].displayName : '';
-            const assigneeImg = f['System.AssignedTo'] ? f['System.AssignedTo'].imageUrl : '';
-            const epicTitle = f['System.Parent'] ? (epicCache[f['System.Parent']] || 'Sem épico') : 'Sem épico';
-
-            stories.push({
+            const stateChange = f['Microsoft.VSTS.Common.StateChangeDate'] || f['System.CreatedDate'];
+            const story = {
                 id: f['System.Id'],
-                title: f['System.Title'],
-                state: state,
+                title: f['System.Title'] || '',
+                stateRaw: f['System.State'],
+                typeName: f['System.WorkItemType'],
                 type: f['System.WorkItemType'] === 'Bug' ? 'Bug' : 'US',
-                assignee: assignee,
-                assigneeImg: assigneeImg,
-                epic: epicTitle,
-                tags: tags,
+                assignee: f['System.AssignedTo'] ? f['System.AssignedTo'].displayName : '',
+                assigneeImg: f['System.AssignedTo'] ? f['System.AssignedTo'].imageUrl : '',
+                epic: f['System.Parent'] ? (epicCache[f['System.Parent']] || 'Sem épico') : 'Sem épico',
+                tags: f['System.Tags'] ? f['System.Tags'].split(';').map(t => t.trim()).filter(Boolean) : [],
+                boardColumn: f['System.BoardColumn'] || '',
                 leadTime: f['Custom.SR_LEAD_TIME'] || null,
-                completedWork: f['Microsoft.VSTS.Scheduling.CompletedWork'] || null
-            });
+                completedWork: f['Microsoft.VSTS.Scheduling.CompletedWork'] || null,
+                stateChangeDate: stateChange ? new Date(stateChange) : null
+            };
+            story.col = findColumn(story, columns);
+            if (story.col < 0) continue;
+            story.isDone = DONE_STATES.includes(story.stateRaw) || columns[story.col].isDone;
+            // Reaproveita o tempo na coluna já calculado se o item não mudou de coluna
+            const old = previous.get(story.id);
+            if (old && old.col === story.col && old.columnSince) story.columnSince = old.columnSince;
+            list.push(story);
         }
+        stories = list;
 
-        // 5. Populate tag filter
-        const tagSelect = document.getElementById('tagFilter');
-        tagSelect.innerHTML = '<option value="">Todas as tags</option>';
-        [...allTags].sort().forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t; opt.textContent = t;
-            tagSelect.appendChild(opt);
-        });
-
-        // 6. Render board
-        renderBoard(stories);
-
+        buildAssigneeOptions();
+        applyPrefsToInputs();
         document.getElementById('filtersContainer').style.display = 'flex';
-        document.getElementById('statsBar').style.display = 'flex';
-        document.getElementById('lastUpdate').textContent = `  Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+        document.getElementById('lastUpdate').textContent = `Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+        setStatus('');
+        render();
 
-        // Store globally for filtering
-        window._stories = stories;
-
+        computeColumnAging();
     } catch (error) {
-        board.innerHTML = `<div class="loading" style="color:#f87171;">❌ Erro ao carregar dados:<br><br>${error.message}<br><br>Verifique se a PAT está válida e tente novamente.</div>`;
+        if (firstLoad) {
+            board.innerHTML = `<div class="loading" style="color:#f87171;">❌ Erro ao carregar dados:<br><br>${esc(error.message)}<br><br>Verifique se a PAT está válida e tente novamente.</div>`;
+        } else {
+            setStatus(`Erro ao atualizar: ${error.message}`, true);
+        }
         console.error(error);
+    } finally {
+        loading = false;
+        btn.disabled = false;
     }
 }
 
-function renderBoard(stories) {
-    // Group by epic
-    const epics = {};
-    stories.forEach(s => {
-        if (!epics[s.epic]) epics[s.epic] = [];
-        epics[s.epic].push(s);
+// Descobre há quanto tempo cada item está na coluna atual (última mudança de System.BoardColumn no histórico)
+async function computeColumnAging() {
+    const token = ++agingToken;
+    const pending = stories.filter(s => !s.isDone && !s.columnSince);
+    if (!pending.length) return;
+    setStatus(`Calculando tempo na coluna… (0/${pending.length})`);
+    let done = 0;
+    await mapLimit(pending, 6, async story => {
+        if (token !== agingToken) return;
+        let since = null;
+        let found = false;
+        for (let skip = 0; ; skip += 200) {
+            const data = await softGet(`${API_BASE}/wit/workItems/${story.id}/updates?$top=200&$skip=${skip}&api-version=7.1`);
+            if (!data || !data.value) break;
+            found = true;
+            for (const u of data.value) {
+                if (u.fields && u.fields['System.BoardColumn']) {
+                    const changed = u.fields['System.ChangedDate'];
+                    since = (changed && changed.newValue) || u.revisedDate || since;
+                }
+            }
+            if (data.value.length < 200) break;
+        }
+        if (token !== agingToken) return;
+        if (found) {
+            const createdOrState = story.stateChangeDate;
+            story.columnSince = since ? new Date(since) : createdOrState;
+        }
+        done++;
+        if (done % 10 === 0) setStatus(`Calculando tempo na coluna… (${done}/${pending.length})`);
     });
+    if (token !== agingToken) return;
+    setStatus('');
+    render();
+}
 
-    // Sort epics: those with active items first, then by name
-    const epicNames = Object.keys(epics).sort((a, b) => {
-        const aActive = epics[a].some(s => s.state === 'active' || s.state === 'review');
-        const bActive = epics[b].some(s => s.state === 'active' || s.state === 'review');
-        if (aActive && !bActive) return -1;
-        if (!aActive && bActive) return 1;
-        return a.localeCompare(b);
-    });
+function buildAssigneeOptions() {
+    const names = [...new Set(stories.map(s => s.assignee).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    if (prefs.assignee && prefs.assignee !== '__none__' && !names.includes(prefs.assignee)) prefs.assignee = '';
+    document.getElementById('assigneeFilter').innerHTML =
+        '<option value="">Todos os responsáveis</option><option value="__none__">Sem responsável</option>' +
+        names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    document.getElementById('tagFilter').innerHTML =
+        '<option value="">Todas as tags</option>' + TAG_OPTIONS.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+}
 
+// --- Renderização ---
+function passesFilters(s) {
+    const q = norm(prefs.search);
+    if (q && !norm(s.title).includes(q) && !String(s.id).includes(q) && !norm(s.assignee).includes(q)) return false;
+    if (prefs.tag && !s.tags.includes(prefs.tag)) return false;
+    if (prefs.assignee === '__none__' ? s.assignee : (prefs.assignee && s.assignee !== prefs.assignee)) return false;
+    if (prefs.type && s.type !== prefs.type) return false;
+    return true;
+}
+
+let laneNames = [];
+
+function render() {
+    if (!stories) return;
     const board = document.getElementById('kanbanBoard');
-    let html = '';
+    const visible = stories.filter(passesFilters);
 
-    epicNames.forEach(epicName => {
-        const items = epics[epicName];
-        const active = items.filter(s => s.state === 'active');
-        const review = items.filter(s => s.state === 'review');
-        const test = items.filter(s => s.state === 'test');
-        const resolved = items.filter(s => s.state === 'resolved');
+    // Agrupa por épico
+    const epics = {};
+    visible.forEach(s => (epics[s.epic] = epics[s.epic] || []).push(s));
+    laneNames = Object.keys(epics)
+        .sort((a, b) => {
+            const aActive = epics[a].some(s => !s.isDone);
+            const bActive = epics[b].some(s => !s.isDone);
+            if (aActive !== bActive) return aActive ? -1 : 1;
+            return a.localeCompare(b);
+        });
 
-        html += `<div class="epic-section" data-epic="${epicName}">
-            <div class="epic-header" onclick="toggleEpic(this)">
-                <span class="chevron">▼</span>
-                <h2>${epicName}</h2>
-                <span class="epic-count">${items.length} item${items.length > 1 ? 's' : ''}</span>
-            </div>
-            <div class="epic-body">
-                <div class="kanban-column">
-                    <div class="column-header active">Active (${active.length})</div>
-                    ${active.length ? active.map(createCard).join('') : '<div class="no-items">—</div>'}
-                </div>
-                <div class="kanban-column">
-                    <div class="column-header review">Review (${review.length})</div>
-                    ${review.length ? review.map(createCard).join('') : '<div class="no-items">—</div>'}
-                </div>
-                <div class="kanban-column">
-                    <div class="column-header test">Test (${test.length})</div>
-                    ${test.length ? test.map(createCard).join('') : '<div class="no-items">—</div>'}
-                </div>
-                <div class="kanban-column">
-                    <div class="column-header resolved">Resolved (${resolved.length})</div>
-                    ${resolved.length ? resolved.map(createCard).join('') : '<div class="no-items">—</div>'}
-                </div>
-            </div>
+    // Cabeçalho fixo com totais e limite de WIP (limite comparado com o total da coluna, sem filtros)
+    const shownIds = new Set(laneNames.flatMap(n => epics[n].map(s => s.id)));
+    let html = `<div class="board-scroll"><div class="board" style="grid-template-columns: repeat(${columns.length}, minmax(230px, 1fr));">`;
+    columns.forEach((c, i) => {
+        const shown = visible.filter(s => s.col === i && shownIds.has(s.id)).length;
+        const total = stories.filter(s => s.col === i).length;
+        const over = c.limit > 0 && total > c.limit;
+        const wip = c.limit > 0 ? `<span class="wip ${over ? 'over' : ''}" title="Limite de WIP definido no quadro do Azure">WIP ${total}/${c.limit}</span>` : '';
+        const last = i === columns.length - 1 ? 'last' : '';
+        html += `<div class="col-header ${over ? 'over' : ''} ${last}" style="--c:${c.color}">
+            <div class="col-name">${esc(c.name)}</div>
+            <div class="col-info"><span class="col-count">${shown}</span> item${shown === 1 ? '' : 's'} ${wip}</div>
         </div>`;
     });
 
+    if (!laneNames.length) {
+        html += `<div class="board-empty">Nenhum item encontrado com esses filtros.</div>`;
+    }
+
+    laneNames.forEach((name, laneIdx) => {
+        const items = epics[name];
+        const collapsed = prefs.collapsed.includes(name);
+        const mini = columns.map((c, i) => {
+            const n = items.filter(s => s.col === i).length;
+            return n ? `<span title="${esc(c.name)}"><i style="--c:${c.color}"></i>${n}</span>` : '';
+        }).join('');
+        html += `<div class="lane-header ${collapsed ? 'collapsed' : ''}" onclick="toggleEpic(${laneIdx})">
+            <div class="lane-header-inner">
+                <span class="chevron">▼</span>
+                <span class="lane-title">${esc(name)}</span>
+                <span class="epic-count">${items.length} item${items.length > 1 ? 's' : ''}</span>
+                <span class="lane-mini">${mini}</span>
+            </div>
+        </div>`;
+        if (!collapsed) {
+            columns.forEach((c, i) => {
+                html += `<div class="cell ${i === columns.length - 1 ? 'last' : ''}">${items.filter(s => s.col === i).map(createCard).join('')}</div>`;
+            });
+        }
+    });
+
+    html += '</div></div>';
+
+    // Mantém a posição de rolagem do quadro entre renderizações
+    const oldScroll = board.querySelector('.board-scroll');
+    const scroll = oldScroll ? { top: oldScroll.scrollTop, left: oldScroll.scrollLeft } : null;
     board.innerHTML = html;
-    updateStats();
+    if (scroll) {
+        const el = board.querySelector('.board-scroll');
+        el.scrollTop = scroll.top;
+        el.scrollLeft = scroll.left;
+    }
+}
+
+function agingHtml(story) {
+    if (story.isDone) return '';
+    const since = story.columnSince || story.stateChangeDate;
+    if (!since) return '';
+    const days = daysSince(since);
+    const level = days >= AGING_DANGER_DAYS ? 'danger' : days >= AGING_WARN_DAYS ? 'warn' : '';
+    const estimated = !story.columnSince;
+    const tip = `${days} dia${days === 1 ? '' : 's'} nesta coluna (desde ${since.toLocaleDateString('pt-BR')})${estimated ? ' — estimado pela última mudança de estado' : ''}`;
+    return `<span class="aging ${level} ${estimated ? 'estimated' : ''}" title="${esc(tip)}">⏳ ${days}d</span>`;
+}
+
+function avatarHtml(story) {
+    if (!story.assignee) return '<span class="avatar" title="Sem responsável">—</span>';
+    const parts = story.assignee.split(/\s+/).filter(Boolean);
+    const initials = ((parts[0] || '')[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
+    const img = story.assigneeImg ? `<img src="${esc(story.assigneeImg)}" alt="" onerror="this.remove()">` : '';
+    return `<span class="avatar" title="${esc(story.assignee)}">${esc(initials.toUpperCase())}${img}</span>`;
 }
 
 function createCard(story) {
-    const tagsHtml = story.tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+    const color = columns[story.col].color;
+    const tagsHtml = story.tags.length ? `<div class="card-tags">${story.tags.map(t => `<span class="card-tag">${esc(t)}</span>`).join('')}</div>` : '';
     const typeLabel = story.type === 'Bug' ? '<span class="card-type-badge bug">🐛 Bug</span>' : '';
-    const leadTimeHtml = story.leadTime ? `<span class="card-leadtime">⏱ ${story.leadTime}d</span>` : '';
-    const completedHtml = story.completedWork ? `<span class="card-hours">🕐 ${story.completedWork}h</span>` : '';
-    const avatarHtml = '';
-    return `<div class="card ${story.state}" data-id="${story.id}" data-title="${story.title.toLowerCase()}" data-assignee="${(story.assignee||'').toLowerCase()}" data-tags="${story.tags.join(',')}">
-        <div class="card-title">${typeLabel}${story.title}</div>
-        <div class="card-tags">${tagsHtml}</div>
+    const leadTimeHtml = story.leadTime ? `<span class="card-leadtime" title="Lead time">⏱ ${esc(story.leadTime)}d</span>` : '';
+    const completedHtml = story.completedWork ? `<span class="card-hours" title="Horas trabalhadas">🕐 ${esc(story.completedWork)}h</span>` : '';
+    return `<div class="card" style="--c:${color}">
+        <div class="card-title">${typeLabel}${esc(story.title)}</div>
+        ${tagsHtml}
         <div class="card-meta">
             <a class="card-id" href="https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_workitems/edit/${story.id}" target="_blank" title="Abrir no Azure DevOps">#${story.id}</a>
-            ${leadTimeHtml}
-            ${completedHtml}
-            <span class="card-assignee">${story.assignee || '—'}</span>
+            <span class="meta-badges">${agingHtml(story)}${leadTimeHtml}${completedHtml}</span>
+            ${avatarHtml(story)}
         </div>
     </div>`;
 }
 
-function toggleEpic(header) {
-    header.classList.toggle('collapsed');
-    const body = header.nextElementSibling;
-    body.classList.toggle('hidden');
-}
-
-function updateStats() {
-    const visible = document.querySelectorAll('.card:not(.hidden-card)');
-    let counts = { active: 0, review: 0, test: 0, resolved: 0 };
-    visible.forEach(card => {
-        if (card.classList.contains('active')) counts.active++;
-        if (card.classList.contains('review')) counts.review++;
-        if (card.classList.contains('test')) counts.test++;
-        if (card.classList.contains('resolved')) counts.resolved++;
-    });
-    document.getElementById('stat-active').textContent = counts.active;
-    document.getElementById('stat-review').textContent = counts.review;
-    document.getElementById('stat-test').textContent = counts.test;
-    document.getElementById('stat-resolved').textContent = counts.resolved;
-}
-
-function filterCards() {
-    const query = document.getElementById('searchInput').value.toLowerCase().trim();
-    const tagFilter = document.getElementById('tagFilter').value;
-    const cards = document.querySelectorAll('.card');
-    const epicSections = document.querySelectorAll('.epic-section');
-
-    cards.forEach(card => {
-        const title = card.getAttribute('data-title');
-        const id = card.getAttribute('data-id');
-        const assignee = card.getAttribute('data-assignee');
-        const tags = card.getAttribute('data-tags');
-        const matchText = !query || title.includes(query) || id.includes(query) || assignee.includes(query);
-        const matchTag = !tagFilter || tags.split(',').includes(tagFilter);
-        card.classList.toggle('hidden-card', !(matchText && matchTag));
-    });
-
-    epicSections.forEach(section => {
-        const visibleCards = section.querySelectorAll('.card:not(.hidden-card)');
-        section.classList.toggle('hidden-epic', visibleCards.length === 0);
-    });
-
-    updateStats();
+function toggleEpic(laneIdx) {
+    const name = laneNames[laneIdx];
+    if (name === undefined) return;
+    prefs.collapsed = prefs.collapsed.includes(name)
+        ? prefs.collapsed.filter(n => n !== name)
+        : [...prefs.collapsed, name];
+    savePrefs();
+    render();
 }
 
 // Load on page open - verifica se tem PAT salva
