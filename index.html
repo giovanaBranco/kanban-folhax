@@ -56,6 +56,8 @@
         .lane-header .chevron { font-size: 0.7rem; transition: transform 0.2s; color: #8892b0; }
         .lane-header.collapsed .chevron { transform: rotate(-90deg); }
         .lane-title { font-size: 0.9rem; font-weight: 600; color: #cbd5e1; }
+        .lane-link { color: inherit; text-decoration: none; }
+        .lane-link:hover { color: #4a9eff; text-decoration: underline; }
         .epic-count { font-size: 0.75rem; color: #64748b; background: #1e293b; padding: 2px 10px; border-radius: 12px; white-space: nowrap; }
         .lane-mini { display: none; gap: 8px; font-size: 0.72rem; color: #94a3b8; }
         .lane-header.collapsed .lane-mini { display: inline-flex; }
@@ -73,6 +75,8 @@
         .card-type-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
         .card-type-badge.bug { background: #7f1d1d; color: #fca5a5; }
         .card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: #64748b; }
+        .card-link { color: inherit; text-decoration: none; }
+        .card-link:hover { color: #4a9eff; text-decoration: underline; }
         .card-id { font-weight: 600; color: #8892b0; text-decoration: none; transition: color 0.2s; }
         .card-id:hover { color: #4a9eff; text-decoration: underline; }
         .meta-badges { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
@@ -471,20 +475,20 @@ async function resolveEpics(workItems) {
     const parentToGrandparent = {};
     for (const p of parents) {
         if (p.fields['System.WorkItemType'] === 'Epic') {
-            epicCache[p.id] = p.fields['System.Title'];
+            epicCache[p.id] = { id: p.id, title: p.fields['System.Title'] };
         } else if (p.fields['System.Parent']) {
             grandparentIds.push(p.fields['System.Parent']);
             parentToGrandparent[p.id] = p.fields['System.Parent'];
         } else {
-            epicCache[p.id] = p.fields['System.Title'];
+            epicCache[p.id] = { id: p.id, title: p.fields['System.Title'] };
         }
     }
 
     if (grandparentIds.length > 0) {
         const grandparents = await getWorkItemsBatch([...new Set(grandparentIds)], ['System.Id', 'System.Title']);
-        for (const gp of grandparents) epicCache[gp.id] = gp.fields['System.Title'];
+        for (const gp of grandparents) epicCache[gp.id] = { id: gp.id, title: gp.fields['System.Title'] };
         for (const p of parents) {
-            if (parentToGrandparent[p.id]) epicCache[p.id] = epicCache[parentToGrandparent[p.id]] || p.fields['System.Title'];
+            if (parentToGrandparent[p.id]) epicCache[p.id] = epicCache[parentToGrandparent[p.id]] || { id: p.id, title: p.fields['System.Title'] };
         }
     }
 }
@@ -539,7 +543,8 @@ async function loadData() {
                 type: f['System.WorkItemType'] === 'Bug' ? 'Bug' : 'US',
                 assignee: f['System.AssignedTo'] ? f['System.AssignedTo'].displayName : '',
                 assigneeImg: f['System.AssignedTo'] ? f['System.AssignedTo'].imageUrl : '',
-                epic: f['System.Parent'] ? (epicCache[f['System.Parent']] || 'Sem épico') : 'Sem épico',
+                epic: (epicCache[f['System.Parent']] || {}).title || 'Sem épico',
+                epicId: (epicCache[f['System.Parent']] || {}).id || null,
                 tags: f['System.Tags'] ? f['System.Tags'].split(';').map(t => t.trim()).filter(Boolean) : [],
                 boardColumn: f['System.BoardColumn'] || '',
                 leadTime: f['Custom.SR_LEAD_TIME'] || null,
@@ -680,7 +685,7 @@ function render() {
         html += `<div class="lane-header ${collapsed ? 'collapsed' : ''}" onclick="toggleEpic(${laneIdx})">
             <div class="lane-header-inner">
                 <span class="chevron">▼</span>
-                <span class="lane-title">${esc(name)}</span>
+                <span class="lane-title">${items[0].epicId ? `<a class="lane-link" href="${workItemUrl(items[0].epicId)}" target="_blank" title="Abrir épico no Azure DevOps" onclick="event.stopPropagation()">${esc(name)}</a>` : esc(name)}</span>
                 <span class="epic-count">${items.length} item${items.length > 1 ? 's' : ''}</span>
                 <span class="lane-mini">${mini}</span>
             </div>
@@ -724,6 +729,10 @@ function avatarHtml(story) {
     return `<span class="avatar" title="${esc(story.assignee)}">${esc(initials.toUpperCase())}${img}</span>`;
 }
 
+function workItemUrl(id) {
+    return `https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_workitems/edit/${id}`;
+}
+
 function createCard(story) {
     const color = columns[story.col].color;
     const tagsHtml = story.tags.length ? `<div class="card-tags">${story.tags.map(t => `<span class="card-tag">${esc(t)}</span>`).join('')}</div>` : '';
@@ -731,10 +740,10 @@ function createCard(story) {
     const leadTimeHtml = story.leadTime ? `<span class="card-leadtime" title="Lead time">⏱ ${esc(story.leadTime)}d</span>` : '';
     const completedHtml = story.completedWork ? `<span class="card-hours" title="Horas trabalhadas">🕐 ${esc(story.completedWork)}h</span>` : '';
     return `<div class="card" style="--c:${color}">
-        <div class="card-title">${typeLabel}${esc(story.title)}</div>
+        <div class="card-title">${typeLabel}<a class="card-link" href="${workItemUrl(story.id)}" target="_blank" title="Abrir no Azure DevOps">${esc(story.title)}</a></div>
         ${tagsHtml}
         <div class="card-meta">
-            <a class="card-id" href="https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_workitems/edit/${story.id}" target="_blank" title="Abrir no Azure DevOps">#${story.id}</a>
+            <a class="card-id" href="${workItemUrl(story.id)}" target="_blank" title="Abrir no Azure DevOps">#${story.id}</a>
             <span class="meta-badges">${agingHtml(story)}${leadTimeHtml}${completedHtml}</span>
             ${avatarHtml(story)}
         </div>
